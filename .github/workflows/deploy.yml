@@ -49,8 +49,8 @@ jobs:
             # Inicia container SonarQube temporário
             docker run -d --name sonar-temp -p 9000:9000 sonarqube
 
-            # Espera SonarQube subir (máx 60s)
-            for i in {1..30}; do
+            # Espera SonarQube subir (máx 120s)
+            for i in {1..60}; do
               if curl -s http://localhost:9000/api/system/status | grep -q "UP"; then
                 break
               fi
