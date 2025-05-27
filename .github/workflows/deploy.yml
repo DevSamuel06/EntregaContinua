@@ -1,0 +1,68 @@
+name: CI/CD - Deploy Node.js com Docker, SonarQube e SSH
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/pwo-app:latest
+      CONTAINER_NAME: pwo-app
+      CONTAINER_PORT: 8206
+
+    steps:
+      - name: ⬇️ Checkout do código
+        uses: actions/checkout@v3
+
+      - name: 🔐 Login no Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: 🐳 Build da imagem Docker
+        run: docker build -t $IMAGE_NAME .
+
+      - name: 📤 Push da imagem para o Docker Hub
+        run: docker push $IMAGE_NAME
+
+      - name: 🔑 Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 🚀 Subir container SonarQube no servidor remoto
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+            docker run -d --name sonarqube -p 9000:9000 sonarqube:community
+          '
+
+      - name: ⏳ Aguardar SonarQube iniciar
+        run: sleep 60
+
+      - name: 📊 Rodar análise SonarQube
+        run: |
+          npm install -g sonarqube-scanner
+          sonar-scanner \
+            -Dsonar.projectKey=pwo-app \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://${{ secrets.SERVER_HOST }}:9000 \
+            -Dsonar.login=admin \
+            -Dsonar.password=admin
+
+      - name: 🧹 Remover SonarQube do servidor remoto
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} '
+            docker stop sonarqube && docker rm sonarqube
+          '
+
+      - name: 📦 Deploy da aplicação via SSH no servidor remoto
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            docker stop $CONTAINER_NAME || true &&
+            docker rm $CONTAINER_NAME || true &&
+            docker pull $IMAGE_NAME &&
+            docker run -d --name $CONTAINER_NAME -p $CONTAINER_PORT:3000 $IMAGE_NAME
+          "
