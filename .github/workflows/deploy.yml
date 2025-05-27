@@ -67,7 +67,7 @@ jobs:
             docker run --rm \
               -v /home/aluno/projeto-vollo:/usr/src \
               sonarsource/sonar-scanner-cli \
-              -Dsonar.host.url=http://localhost:9000 \
+              -Dsonar.host.url=http://201.23.3.86:9000 \
               -Dsonar.login= # <-- configure token no servidor, ou pule essa linha e configure via variáveis
 
             # Captura código de saída do scanner
