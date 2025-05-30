@@ -51,8 +51,9 @@ jobs:
             docker rm -f sonar-temp 2>/dev/null || true
 
             # Inicia container SonarQube temporário
-            docker run -d --name sonar-temp -p 9000:9000 sonarqube \ 
-              -Dsonar.forceAuthentication=false
+            docker run -d --name sonar-temp -p 9000:9000 \
+              -e SONARQUBE_JAVA_OPTS="-Dsonar.forceAuthentication=false" \
+              sonarqube
 
             # Aguarda o SonarQube estar pronto (máx 120s)
             for i in {1..60}; do
