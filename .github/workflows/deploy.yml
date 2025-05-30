@@ -44,67 +44,78 @@ jobs:
       - name: Executar SonarQube e deploy remoto
         env:
           IMAGE_NAME: devsamuel1227/projeto-vollo:latest
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # se você for usar autenticação
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 aluno@201.23.3.86 << 'EOF'
-            # Inicia container SonarQube temporário
-            docker run -d --name sonar-temp -p 9000:9000 sonarqube
+            # Garante que não existe container Sonar antigo
+            docker rm -f sonar-temp 2>/dev/null || true
 
-            # Espera SonarQube subir (máx 120s)
+            # Inicia container SonarQube temporário
+            docker run -d --name sonar-temp -p 9000:9000 sonarqube \ 
+              -Dsonar.forceAuthentication=false
+
+            # Aguarda o SonarQube estar pronto (máx 120s)
             for i in {1..60}; do
-              if curl -s http://localhost:9000/api/system/status | grep -q "UP"; then
+              STATUS=$(curl -s http://localhost:9000/api/system/status | grep -oP '"status":"\K[^"]+')
+              echo "Status do SonarQube: \$STATUS"
+              if [ "\$STATUS" = "UP" ]; then
                 break
               fi
               sleep 2
             done
 
-            if ! curl -s http://localhost:9000/api/system/status | grep -q "UP"; then
-              echo "SonarQube não subiu a tempo."
+            # Verificação final
+            STATUS=$(curl -s http://localhost:9000/api/system/status | grep -oP '"status":"\K[^"]+')
+            if [ "\$STATUS" != "UP" ]; then
+              echo "SonarQube não subiu a tempo. Status final: \$STATUS"
               docker rm -f sonar-temp
               exit 1
             fi
 
-            # Executa análise (ajuste o scanner conforme seu projeto)
+            # Executa análise com sonar-scanner
             docker run --rm \
               -v /home/aluno/projeto-vollo:/usr/src \
               sonarsource/sonar-scanner-cli \
-              -Dsonar.host.url=http://201.23.3.86:9000 \
-              -Dsonar.login= # <-- configure token no servidor, ou pule essa linha e configure via variáveis
+              -Dsonar.projectKey=projeto-vollo \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=http://localhost:9000 \
+              
 
-            # Captura código de saída do scanner
-            SCANNER_EXIT=$?
+            # Captura código de saída da análise
+            SCANNER_EXIT=\$?
 
-            # Para e remove container SonarQube temporário
+            # Para e remove o SonarQube temporário
             docker rm -f sonar-temp
 
-            # Falha se SonarQube reprovou análise
-            if [ $SCANNER_EXIT -ne 0 ]; then
+            # Verifica se a análise foi aprovada
+            if [ \$SCANNER_EXIT -ne 0 ]; then
               echo "Análise SonarQube falhou."
               exit 1
             fi
 
-            # Remove container antigo se existir
+            # Remove container antigo da aplicação, se existir
             if docker ps -a --format '{{.Names}}' | grep -q '^projeto-vollo$'; then
               docker stop projeto-vollo
               docker rm projeto-vollo
             fi
 
             # Encontra porta livre no range 8206-8211
-            AVAILABLE_PORT=$(for port in {8206..8211}; do
-              if ! docker ps --format '{{.Ports}}' | grep -q $port; then
-                echo $port
+            AVAILABLE_PORT=\$(for port in {8206..8211}; do
+              if ! docker ps --format '{{.Ports}}' | grep -q \$port; then
+                echo \$port
                 break
               fi
             done)
 
-            if [ -z "$AVAILABLE_PORT" ]; then
+            if [ -z "\$AVAILABLE_PORT" ]; then
               echo "Nenhuma porta livre disponível no range 8206-8211"
               exit 1
             fi
 
-            echo "Usando porta $AVAILABLE_PORT para o container projeto-vollo"
+            echo "Usando porta \$AVAILABLE_PORT para o container projeto-vollo"
 
-            # Executa container com a imagem atualizada
-            docker run -d --name projeto-vollo -p $AVAILABLE_PORT:3000 $IMAGE_NAME
+            # Executa container atualizado
+            docker run -d --name projeto-vollo -p \$AVAILABLE_PORT:3000 $IMAGE_NAME
 
-            echo "Deploy realizado com sucesso. Aplicação rodando na porta $AVAILABLE_PORT"
+            echo "Deploy realizado com sucesso. Aplicação rodando na porta \$AVAILABLE_PORT"
           EOF
