@@ -18,13 +18,13 @@ jobs:
 
       - name: Build backend
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/backend:latest ./backend
-          docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest ./backend
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
 
       - name: Build frontend
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/frontend:latest ./frontend
-          docker push ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest ./frontend
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
 
   deploy:
     needs: build-and-push
@@ -53,6 +53,6 @@ jobs:
           script: |
             cd ~/app
             docker compose down --remove-orphans || true
-            docker pull ${{ secrets.DOCKER_USERNAME }}/backend:latest
-            docker pull ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
             docker compose up -d --build
