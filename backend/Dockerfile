@@ -1,12 +1,15 @@
 FROM node:18
 
 WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
 COPY . .
 
-EXPOSE 3000
+# Instalar netcat para o entrypoint funcionar
+RUN apt-get update && apt-get install -y netcat-openbsd
 
-CMD ["node", "app.js"]
+
+RUN npm install
+RUN chmod +x entrypoint.sh
+
+EXPOSE 8206
+
+CMD ["./entrypoint.sh"]
