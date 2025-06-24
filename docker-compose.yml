@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: samuel1227/backend:latest
+    image: devsamuel1227/backend:latest
     depends_on:
       - mysql
     ports:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: samuel1227/frontend:latest
+    image: devsamuel1227/frontend:latest
     depends_on:
       - backend
     ports:
