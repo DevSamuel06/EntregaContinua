@@ -1,18 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const path = require('path');
 const pool = require('./db');
 const cors = require('cors');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'frontend')));
-
-// Rota para servir o index.html da pasta ../frontend
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
-});
 
 // Rotas da API
 app.get('/items', async (req, res) => {
@@ -35,7 +28,7 @@ app.put('/items/:id', async (req, res) => {
 
 app.delete('/items/:id', async (req, res) => {
   const { id } = req.params;
-  await pool.query('DELETE FROM items WHERE id = $1', [id]);
+  await pool.query('DELETE FROM items WHERE id = $1');
   res.sendStatus(204);
 });
 
